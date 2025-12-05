@@ -1,6 +1,7 @@
 import threading
 import requests
 import ipaddress
+from urllib.parse import urlparse
 from tqdm import tqdm
 
 
@@ -61,20 +62,35 @@ class Scan():
             pass
 
     def getRequest(self, ip_address):
+        # 解析URL，提取域名和路径
+        parsed_url = urlparse(self.url)
+        domain = parsed_url.netloc
+        path = parsed_url.path
+        if parsed_url.query:
+            path += '?' + parsed_url.query
+
+        # 构建新的URL，使用IP地址替换域名
+        new_url = f"http://{ip_address}{path}"
+
+        # 准备headers，添加Host头
+        headers = {'Host': domain}
+
         if self.request_options is None:
             return requests.request(method='GET',
-                                    url=self.url,
+                                    url=new_url,
                                     timeout=self.timeout / 1000,
-                                    proxies={
-                                        'http': 'http://' + str(ip_address) + ':80'
-                                    },
+                                    headers=headers,
                                     allow_redirects=False)
         else:
-            return requests.request(self.url,
+            # 合并headers
+            if 'headers' in self.request_options:
+                self.request_options['headers'].update(headers)
+            else:
+                self.request_options['headers'] = headers
+
+            return requests.request(method='GET',
+                                    url=new_url,
                                     timeout=self.timeout / 1000,
-                                    proxies={
-                                        'http': 'http://' + str(ip_address) + ':80'
-                                    },
                                     allow_redirects=False,
                                     **self.request_options)
 
